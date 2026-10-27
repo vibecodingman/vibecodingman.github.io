@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Химический тренажёр</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1>Химический тренажёр</h1><span id="badge"></span></header>
+<main id="auth"><section class="panel"><h2>Вход и регистрация</h2>
+<form id="login">
+<label>Электронная почта<input id="email" type="email" autocomplete="email" required></label>
+<label>Пароль<input id="password" type="password" autocomplete="current-password" minlength="8" required></label>
+<div class="auth-buttons"><button type="submit">Войти</button><button type="button" id="signup" class="light">Создать аккаунт</button></div>
+</form><p id="authMsg" role="status"></p><p class="small-note">При регистрации может потребоваться подтверждение почты.</p>
+</section></main>
+<main id="app" class="hidden"><aside class="sidebar"><h2>Программы</h2>
+<input id="search" placeholder="Поиск программы"><nav id="programs"></nav><p id="progress"></p>
+<button id="newProgram" class="admin hidden" type="button">Добавить программу</button>
+<button id="manage" class="admin hidden" type="button">Промокоды</button>
+<button id="logout" class="light" type="button">Выйти</button></aside>
+<section class="content"><div id="promoBox"></div><div id="lesson"></div><div id="adminPanel" class="hidden panel"></div></section></main>
+<div id="toast" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="app.js"></script>
+</body></html>
