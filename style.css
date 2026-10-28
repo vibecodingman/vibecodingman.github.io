@@ -1,0 +1,42 @@
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#263548;font-family:Arial,sans-serif}
+header{background:#102a43;color:white;padding:22px 5%;display:flex;justify-content:space-between;align-items:center;gap:12px}
+header h1{margin:0;font-size:26px}main#auth{max-width:620px;margin:45px auto;padding:0 16px}
+.panel,.section{background:white;padding:24px;border:1px solid #dce4ee;border-radius:14px;margin-bottom:18px}
+h2,h3{color:#102a43}label{display:block;margin:14px 0;font-size:14px;font-weight:bold}
+input{width:100%;padding:11px;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}
+button{background:#2563eb;color:white;padding:11px 14px;border:0;border-radius:8px;font:inherit;font-weight:bold;cursor:pointer}
+button:hover{filter:brightness(.95)}.hidden{display:none!important}#app{display:grid;grid-template-columns:270px 1fr;min-height:calc(100vh - 75px)}
+.sidebar{background:white;border-right:1px solid #dce4ee;padding:20px 15px}.sidebar nav{display:grid;gap:7px;margin:15px 0}
+.program{background:#f0f4f8;color:#263548;text-align:left}.program.active{background:#dceaff;color:#1749a6}.program.locked{color:#64748b}
+.content{padding:28px;max-width:1000px;width:100%}.section{margin-top:18px}.question{border-top:1px solid #e5eaf0;margin-top:18px;padding-top:18px}
+.options{display:grid;gap:8px;margin-top:12px}.option{text-align:left;background:#f0f4f8;color:#263548;border:1px solid #dce4ee;font-weight:normal}
+.option.good{background:#dcfce7;color:#166534}.option.bad{background:#fee2e2;color:#991b1b}
+.feedback{margin-top:10px;padding:12px;border-radius:8px}.correct{background:#dcfce7;color:#166534}.wrong{background:#fee2e2;color:#991b1b}
+.notice{background:#fff7df;border:1px solid #e9d08b;border-radius:10px;padding:16px;margin-bottom:18px}.notice form{display:flex;gap:8px;align-items:start}.notice form input{margin-top:0}
+.admin{background:#e1eaf5;color:#102a43}.light{background:#e8edf3;color:#263548}.danger{background:#fee2e2;color:#991b1b}
+.admin-row{border:1px solid #dce4ee;border-radius:8px;padding:12px;margin:8px 0;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.auth-buttons,.admin-actions{display:flex;flex-wrap:wrap;gap:8px}.auth-buttons button{flex:1}.small-note{color:#64748b;font-size:13px}
+.theory{white-space:pre-wrap;line-height:1.6}#toast{position:fixed;bottom:20px;right:20px;background:#102a43;color:white;padding:14px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:10}
+#toast.show{opacity:1}@media(max-width:700px){#app{grid-template-columns:1fr}.content{padding:16px}header h1{font-size:21px}}
+@media(max-width:480px){.auth-buttons,.notice form{flex-direction:column}.content{padding:12px}}
+
+/* Comfortable multi-field admin editor */
+textarea,select{width:100%;padding:11px;margin-top:6px;border:1px solid #cbd5e1;border-radius:8px;font:inherit;resize:vertical;background:white;color:#263548}
+label .field-help{display:block;color:#64748b;font-weight:normal;font-size:12px;margin-top:4px;line-height:1.4}
+.editor-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px;z-index:20;overflow-y:auto}
+.editor-dialog{width:min(720px,100%);max-height:min(90vh,900px);overflow-y:auto;background:#fff;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.editor-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #e5eaf0;padding-bottom:12px;margin-bottom:12px}
+.editor-heading h2{margin:0}.editor-heading button{padding:8px 11px}.editor-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;position:sticky;bottom:0;background:white;padding-top:12px}
+.editor-dialog label{margin:16px 0}.editor-dialog textarea{min-height:110px}.editor-dialog .compact-textarea{min-height:76px}
+@media(max-width:480px){.editor-backdrop{padding:8px}.editor-dialog{padding:15px}.editor-actions button{flex:1}}
+
+/* Нелинейная навигация по рубрикам */
+.rubric-layout{display:grid;grid-template-columns:minmax(170px,230px) minmax(0,1fr);gap:16px;align-items:start}
+.rubric-nav{display:grid;gap:8px;position:sticky;top:14px}
+.rubric-link{background:#fff;color:#263548;border:1px solid #dce4ee;text-align:left;display:grid;gap:4px}
+.rubric-link span{font-weight:bold}.rubric-link small{font-size:12px;font-weight:normal;color:#64748b;line-height:1.35}
+.rubric-link.active{border-color:#2563eb;background:#eaf1ff;color:#1749a6}
+.rubric-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;color:#64748b}
+.transition-note{font-size:12px;background:#f0f4f8;padding:5px 8px;border-radius:7px}
+.rubric-navigation-buttons{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:22px}
+@media(max-width:700px){.rubric-layout{grid-template-columns:1fr}.rubric-nav{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.rubric-link{padding:10px}.rubric-content{min-width:0}}
