@@ -91,7 +91,7 @@ function renderQuestionHTML(q,qi){
   }else{
     body=`<div class="options">${(q.options||[]).map((o,i)=>`<button type="button" class="option ${r&&i===q.answer?"good":r&&i===r.selected?"bad":""}" data-a="${i}" ${r?"disabled":""}>${esc(o)}</button>`).join("")}</div>${r?`<div class="feedback ${r.correct?"correct":"wrong"}"><b>${r.correct?"Правильно!":"Неправильно."}</b> ${esc(q.explanation||"")}${!r.correct?`<p>Правильный ответ: ${esc(q.options?.[q.answer]||"")}</p>`:""}</div>`:""}`;
   }
-  return `<div class="question" data-q="${esc(q.id)}"><b>${qi+1}. ${esc(inline?"":q.text)}</b>${body}</div>`;
+  return `<div class="question" data-q="${esc(q.id)}"><b>${qi+1}. ${esc(inline?"":q.text)}</b>${body}${admin()?`<div class="admin-actions"><button type="button" class="light" data-editq="${esc(q.id)}">Редактировать задание</button><button type="button" class="danger" data-delq="${esc(q.id)}">Удалить задание</button></div>`:""}</div>`;
 }
 function renderLesson(){
   const el=$("lesson"),p=course.programs.find(x=>x.id===selected);
@@ -113,6 +113,7 @@ function renderLesson(){
   el.querySelectorAll("[data-free-answer]").forEach(form=>form.onsubmit=async e=>{e.preventDefault();const q=allQuestions().find(x=>x.id===form.dataset.freeAnswer);if(!q||progress[q.id])return;const response=new FormData(form).get("response").toString().trim();if(!response){notify("Напиши ответ перед сохранением.");return}progress[q.id]={response,answered:true,correct:false,date:new Date().toISOString()};await submitQuestionAnswer(q)});
   el.querySelectorAll("[data-inline-answer]").forEach(form=>form.onsubmit=async e=>{e.preventDefault();const q=allQuestions().find(x=>x.id===form.dataset.inlineAnswer);if(!q||progress[q.id])return;const responses=[...form.querySelectorAll("[data-blank]")].map(i=>i.value.trim());if(responses.some(x=>!x)){notify("Заполни все поля ответа.");return}const expected=Array.isArray(q.acceptedAnswers)?q.acceptedAnswers:[];const correct=responses.length===expected.length&&responses.every((value,i)=>{const allowed=Array.isArray(expected[i])?expected[i]:[expected[i]];return allowed.some(a=>normalizeAnswer(value)===normalizeAnswer(a))});progress[q.id]={responses,answered:true,correct,date:new Date().toISOString()};await submitQuestionAnswer(q)});
   el.querySelectorAll("[data-addq]").forEach(b=>b.onclick=()=>addQuestion(b.dataset.addq));el.querySelectorAll("[data-edits]").forEach(b=>b.onclick=()=>editSection(b.dataset.edits));el.querySelectorAll("[data-dels]").forEach(b=>b.onclick=()=>deleteSection(b.dataset.dels));
+  el.querySelectorAll("[data-editq]").forEach(b=>b.onclick=()=>editQuestion(b.dataset.editq));el.querySelectorAll("[data-delq]").forEach(b=>b.onclick=()=>deleteQuestion(b.dataset.delq));
   $("prevRubric")?.addEventListener("click",()=>{if(idx>0){activeSectionId=sections[idx-1].id;renderLesson()}});
   $("nextRubric")?.addEventListener("click",()=>{if(idx>=0&&idx<sections.length-1){activeSectionId=sections[idx+1].id;renderLesson()}});
   $("studentNext")?.addEventListener("click",()=>{const next=transitionTarget(p,active);if(!next){notify(`Рубрика с номером ${String(targetNumber).trim()} не найдена. Остаёмся в текущей рубрике.`);return}activeSectionId=next.id;renderLesson();window.scrollTo({top:0,behavior:"smooth"})});
@@ -153,6 +154,76 @@ async function addQuestion(id){
   else{const v=await openEditor("Вопрос с вариантами",[{name:"text",label:"Текст вопроса",type:"textarea",rows:4,required:true},{name:"options",label:"Варианты — по одному на строку",type:"textarea",rows:5,required:true,value:"Вариант 1\nВариант 2\nВариант 3"},{name:"answer",label:"Номер правильного варианта",type:"number",min:1,required:true,value:"1"},{name:"explanation",label:"Объяснение",type:"textarea",rows:3}]);if(!v||!v.text.trim())return;const options=v.options.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),a=Number(v.answer)-1;if(options.length<2){notify("Нужно минимум два варианта.");return}if(!Number.isInteger(a)||a<0||a>=options.length){notify("Номер правильного ответа вне диапазона.");return}q={id:uid("question"),type:"choice",text:v.text.trim(),options,answer:a,explanation:v.explanation.trim()}}
   const live=findSection(id);if(!live){notify("Рубрика не найдена. Обнови страницу.");return}live.questions||=[];live.questions.push(q);selected=ownerProgramId;activeSectionId=id;await changed("Задание добавлено.")
 }
+
+
+function findQuestion(id){
+  for(const p of course.programs||[]) for(const s of p.sections||[]) {
+    const q=(s.questions||[]).find(q=>q.id===id);
+    if(q) return {program:p,section:s,question:q};
+  }
+  return null;
+}
+async function editQuestion(id){
+  if(!admin())return;
+  const found=findQuestion(id);if(!found)return;
+  const {program,section,question:q}=found;
+  // Keep existing progress if only wording is changed; clear it if the answer key/options change.
+  let updated=null;
+  if(q.type==="text"){
+    const v=await openEditor("Редактировать задание с полями",[
+      {name:"text",label:"Текст задания",type:"textarea",rows:7,required:true,help:"Каждое поле ответа обозначается маркером {{input}}."},
+      {name:"explanation",label:"Объяснение после проверки",type:"textarea",rows:3}
+    ],{text:q.text||"",explanation:q.explanation||""});
+    if(!v||!v.text.trim())return;
+    const n=(v.text.match(/\{\{input\}\}/g)||[]).length;
+    if(!n){notify("Добавь хотя бы один маркер {{input}}.");return}
+    const existing=Array.isArray(q.acceptedAnswers)?q.acceptedAnswers:[];
+    const fields=Array.from({length:n},(_,i)=>({name:"a"+i,label:`Правильный ответ для окошка №${i+1}`,required:true,help:"Несколько допустимых ответов раздели символом |"}));
+    const initial={};
+    fields.forEach((f,i)=>{const val=existing[i];initial[f.name]=Array.isArray(val)?val.join(" | "):(val??"")});
+    const answers=await openEditor("Правильные ответы",fields,initial);if(!answers)return;
+    const acceptedAnswers=fields.map(f=>String(answers[f.name]||"").split("|").map(x=>x.trim()).filter(Boolean));
+    if(acceptedAnswers.some(a=>!a.length)){notify("Укажи ответ для каждого поля.");return}
+    updated={...q,text:v.text.trim(),acceptedAnswers,explanation:v.explanation.trim()};
+  }else if(q.type==="essay"||q.type==="free_text"){
+    const v=await openEditor("Редактировать свободный ответ",[
+      {name:"text",label:"Текст задания",type:"textarea",rows:5,required:true},
+      {name:"modelAnswer",label:"Ответ для самостоятельной проверки",type:"textarea",rows:3},
+      {name:"explanation",label:"Инструкция",type:"textarea",rows:3}
+    ],{text:q.text||"",modelAnswer:q.modelAnswer||"",explanation:q.explanation||""});
+    if(!v||!v.text.trim())return;
+    updated={...q,text:v.text.trim(),modelAnswer:v.modelAnswer.trim(),explanation:v.explanation.trim()};
+  }else{
+    const v=await openEditor("Редактировать вопрос",[
+      {name:"text",label:"Текст вопроса",type:"textarea",rows:4,required:true},
+      {name:"options",label:"Варианты — по одному на строку",type:"textarea",rows:5,required:true},
+      {name:"answer",label:"Номер правильного варианта",type:"number",min:1,required:true},
+      {name:"explanation",label:"Объяснение",type:"textarea",rows:3}
+    ],{text:q.text||"",options:(q.options||[]).join("\n"),answer:String(Number(q.answer||0)+1),explanation:q.explanation||""});
+    if(!v||!v.text.trim())return;
+    const options=v.options.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),answer=Number(v.answer)-1;
+    if(options.length<2){notify("Нужно минимум два варианта.");return}
+    if(!Number.isInteger(answer)||answer<0||answer>=options.length){notify("Номер правильного ответа вне диапазона.");return}
+    updated={...q,text:v.text.trim(),options,answer,explanation:v.explanation.trim()};
+  }
+  const answerKeyChanged=JSON.stringify({type:q.type,options:q.options,answer:q.answer,acceptedAnswers:q.acceptedAnswers,modelAnswer:q.modelAnswer})!==JSON.stringify({type:updated.type,options:updated.options,answer:updated.answer,acceptedAnswers:updated.acceptedAnswers,modelAnswer:updated.modelAnswer});
+  Object.assign(q,updated);
+  if(answerKeyChanged)delete progress[q.id];
+  selected=program.id;activeSectionId=section.id;
+  try{await saveCourse();if(answerKeyChanged)await saveProgress();render();notify(answerKeyChanged?"Задание изменено. Старый результат сброшен, так как изменился правильный ответ.":"Задание изменено.")}
+  catch(e){notify("Ошибка сохранения задания: "+e.message);console.error(e)}
+}
+async function deleteQuestion(id){
+  if(!admin())return;
+  const found=findQuestion(id);if(!found)return;
+  if(!confirm("Удалить это задание и сохранённые ответы учеников на него?"))return;
+  found.section.questions=(found.section.questions||[]).filter(q=>q.id!==id);
+  delete progress[id];
+  selected=found.program.id;activeSectionId=found.section.id;
+  try{await saveCourse();await saveProgress();render();notify("Задание удалено.")}
+  catch(e){notify("Ошибка удаления задания: "+e.message);console.error(e)}
+}
+
 async function managePromos(){
   if(!admin())return;const panel=$("adminPanel");panel.classList.remove("hidden");$("lesson").classList.add("hidden");
   try{const promos=await dataOrThrow(await sb.from("promo_codes").select("*").order("created_at",{ascending:false}));
