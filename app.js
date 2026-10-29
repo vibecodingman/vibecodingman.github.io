@@ -1,3 +1,4 @@
+
 /* Химический тренажёр — Supabase client. Never place service_role keys in browser code. */
 "use strict";
 const SUPABASE_URL="https://jjfuhqntmszksptaubeg.supabase.co";
@@ -81,6 +82,8 @@ function renderInlineTask(q,responses=[],editable=false){
   const parts=String(q.text||"").split("{{input}}");
   return parts.map((part,i)=>`${esc(part)}${i<parts.length-1?`<input class="inline-answer-input" type="text" ${editable?`name="blank${i}" data-blank="${i}" required`:`value="${esc(responses[i]||"")}" disabled`} aria-label="Ответ ${i+1}" placeholder="Впиши ответ">`:""}`).join("");
 }
+
+/* Обновлено: кнопки редактирования и удаления задания явно видны администратору. */
 function renderQuestionHTML(q,qi){
   const r=progress[q.id],inline=q.type==="text"&&String(q.text||"").includes("{{input}}"),free=q.type==="essay"||q.type==="free_text";
   let body="";
@@ -91,7 +94,11 @@ function renderQuestionHTML(q,qi){
   }else{
     body=`<div class="options">${(q.options||[]).map((o,i)=>`<button type="button" class="option ${r&&i===q.answer?"good":r&&i===r.selected?"bad":""}" data-a="${i}" ${r?"disabled":""}>${esc(o)}</button>`).join("")}</div>${r?`<div class="feedback ${r.correct?"correct":"wrong"}"><b>${r.correct?"Правильно!":"Неправильно."}</b> ${esc(q.explanation||"")}${!r.correct?`<p>Правильный ответ: ${esc(q.options?.[q.answer]||"")}</p>`:""}</div>`:""}`;
   }
-  return `<div class="question" data-q="${esc(q.id)}"><b>${qi+1}. ${esc(inline?"":q.text)}</b>${body}${admin()?`<div class="admin-actions"><button type="button" class="light" data-editq="${esc(q.id)}">Редактировать задание</button><button type="button" class="danger" data-delq="${esc(q.id)}">Удалить задание</button></div>`:""}</div>`;
+  const adminButtons=admin()?`<div class="question-admin-actions" style="display:flex!important;flex-wrap:wrap;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid #dbe3ef;visibility:visible!important;opacity:1!important">
+    <button type="button" class="light" style="display:inline-flex!important;visibility:visible!important;opacity:1!important" data-editq="${esc(q.id)}">✏️ Редактировать задание</button>
+    <button type="button" class="danger" style="display:inline-flex!important;visibility:visible!important;opacity:1!important" data-delq="${esc(q.id)}">🗑️ Удалить задание</button>
+  </div>`:"";
+  return `<div class="question" data-q="${esc(q.id)}"><b>${qi+1}. ${esc(inline?"":q.text)}</b>${body}${adminButtons}</div>`;
 }
 function renderLesson(){
   const el=$("lesson"),p=course.programs.find(x=>x.id===selected);
@@ -155,7 +162,6 @@ async function addQuestion(id){
   const live=findSection(id);if(!live){notify("Рубрика не найдена. Обнови страницу.");return}live.questions||=[];live.questions.push(q);selected=ownerProgramId;activeSectionId=id;await changed("Задание добавлено.")
 }
 
-
 function findQuestion(id){
   for(const p of course.programs||[]) for(const s of p.sections||[]) {
     const q=(s.questions||[]).find(q=>q.id===id);
@@ -167,7 +173,6 @@ async function editQuestion(id){
   if(!admin())return;
   const found=findQuestion(id);if(!found)return;
   const {program,section,question:q}=found;
-  // Keep existing progress if only wording is changed; clear it if the answer key/options change.
   let updated=null;
   if(q.type==="text"){
     const v=await openEditor("Редактировать задание с полями",[
