@@ -185,14 +185,14 @@ async function addQuestion(id){
   if(kind.type==="route"){
     const v=await openEditor("Задание с выбором маршрута",[
       {name:"text",label:"Текст вопроса",type:"textarea",rows:4,required:true},
-      {name:"options",label:"Варианты ответа — по одному на строку",type:"textarea",rows:5,required:true,value:"Вариант 1\\nВариант 2\\nВариант 3"},
+      {name:"options",label:"Варианты ответа — по одному на строку",type:"textarea",rows:5,required:true,value:"Вариант 1\nВариант 2\nВариант 3"},
       {name:"destinations",label:"Номер рубрики для каждого варианта — в том же порядке",type:"textarea",rows:5,required:true,help:"На каждую строку варианта укажи номер рубрики назначения. Например: 4, затем 7, затем 12."}
     ]);
     if(!v||!v.text.trim())return;
-    const options=v.options.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
-    const destinations=v.destinations.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+    const options=v.options.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    const destinations=v.destinations.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     if(options.length<2){notify("Нужно минимум два варианта.");return}
-    if(destinations.length!==options.length||destinations.some(x=>!/^\\d+$/.test(x))){notify("Укажи номер рубрики для каждого варианта — по одному на строку.");return}
+    if(destinations.length!==options.length||destinations.some(x=>!/^\d+$/.test(x))){notify("Укажи номер рубрики для каждого варианта — по одному на строку.");return}
     q={id:uid("question"),type:"route",text:v.text.trim(),options,destinations};
   }
   else if(kind.type==="text"){const v=await openEditor("Задание со встроенными полями",[{name:"text",label:"Текст задания",type:"textarea",rows:7,required:true,help:"Добавь {{input}} в каждое место для ответа."},{name:"explanation",label:"Объяснение после проверки",type:"textarea",rows:3}]);if(!v||!v.text.trim())return;const n=(v.text.match(/\{\{input\}\}/g)||[]).length;if(!n){notify("Добавь хотя бы один маркер {{input}}.");return}const fields=Array.from({length:n},(_,i)=>({name:"a"+i,label:`Правильный ответ для окошка №${i+1}`,required:true,help:"Несколько допустимых ответов раздели символом |"}));const answers=await openEditor("Правильные ответы",fields);if(!answers)return;const acceptedAnswers=fields.map(f=>String(answers[f.name]||"").split("|").map(x=>x.trim()).filter(Boolean));if(acceptedAnswers.some(a=>!a.length)){notify("Укажи ответ для каждого поля.");return}q={id:uid("question"),type:"text",text:v.text.trim(),acceptedAnswers,explanation:v.explanation.trim()}}
@@ -218,12 +218,12 @@ async function editQuestion(id){
       {name:"text",label:"Текст вопроса",type:"textarea",rows:4,required:true},
       {name:"options",label:"Варианты ответа — по одному на строку",type:"textarea",rows:5,required:true},
       {name:"destinations",label:"Номер рубрики для каждого варианта — в том же порядке",type:"textarea",rows:5,required:true,help:"На каждую строку варианта укажи номер рубрики назначения."}
-    ],{text:q.text||"",options:(q.options||[]).join("\\n"),destinations:(q.destinations||[]).join("\\n")});
+    ],{text:q.text||"",options:(q.options||[]).join("\n"),destinations:(q.destinations||[]).join("\n")});
     if(!v||!v.text.trim())return;
-    const options=v.options.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
-    const destinations=v.destinations.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+    const options=v.options.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    const destinations=v.destinations.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
     if(options.length<2){notify("Нужно минимум два варианта.");return}
-    if(destinations.length!==options.length||destinations.some(x=>!/^\\d+$/.test(x))){notify("Укажи номер рубрики для каждого варианта — по одному на строку.");return}
+    if(destinations.length!==options.length||destinations.some(x=>!/^\d+$/.test(x))){notify("Укажи номер рубрики для каждого варианта — по одному на строку.");return}
     updated={...q,type:"route",text:v.text.trim(),options,destinations};
   }else if(q.type==="text"){
     const v=await openEditor("Редактировать задание с полями",[
