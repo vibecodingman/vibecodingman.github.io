@@ -123,3 +123,215 @@ function renderLesson(){
   const next=$("nextRubric");if(next)next.onclick=()=>{if(!target){notify("Следующая рубрика не найдена.");return}activeSectionId=target.id;render()};
   renderAdminPanel(p);
 }
+
+function renderAdminPanel(p){
+  if(!admin()){$("adminPanel").classList.add("hidden");return}
+  const panel=$("adminPanel");panel.classList.remove("hidden");
+  panel.innerHTML=`<h2>Управление программой</h2>
+    <div class="admin-actions">
+      <button type="button" id="addSection">Добавить рубрику</button>
+      <button type="button" id="editProgram" class="light">Изменить программу</button>
+      <button type="button" id="deleteProgram" class="danger">Удалить программу</button>
+    </div>
+    <h3>Рубрики</h3>
+    ${(p.sections||[]).map((s,i)=>`<div class="admin-row">
+      <span><b>№ ${esc(rubricNumber(s,i))}.</b> ${esc(s.title||"Без названия")}</span>
+      <div class="admin-actions">
+        <button type="button" class="light" data-nav-section="${esc(s.id)}">Открыть</button>
+        <button type="button" class="light" data-edit-section="${esc(s.id)}">Изменить</button>
+        <button type="button" class="danger" data-delete-section="${esc(s.id)}">Удалить</button>
+      </div>
+    </div>`).join("")}
+    ${activeSectionId?`<div class="admin-actions"><button type="button" data-addq="${esc(activeSectionId)}">+ Задание</button></div>`:""}`;
+  $("addSection").onclick=()=>addSection(p.id);
+  $("editProgram").onclick=()=>editProgram(p.id);
+  $("deleteProgram").onclick=()=>deleteProgram(p.id);
+  panel.querySelectorAll("[data-nav-section]").forEach(b=>b.onclick=()=>{activeSectionId=b.dataset.navSection;render()});
+  panel.querySelectorAll("[data-edit-section]").forEach(b=>b.onclick=()=>editSection(b.dataset.editSection));
+  panel.querySelectorAll("[data-delete-section]").forEach(b=>b.onclick=()=>deleteSection(b.dataset.deleteSection));
+  panel.querySelectorAll("[data-addq]").forEach(b=>b.onclick=()=>addQuestion(b.dataset.addq));
+}
+
+function openEditor(title,fields,initial={}){
+  return new Promise(resolve=>{
+    editorOpen=true;
+    $("editorTitle").textContent=title;
+    const host=$("editorFields");
+    host.innerHTML="";
+    let routeRows=[];
+    function renderRouteRows(rows){
+      routeRows=rows;
+      const wrap=document.createElement("div");
+      wrap.className="route-editor-rows";
+      rows.forEach((row,i)=>{
+        const line=document.createElement("div");
+        line.className="route-editor-row";
+        const text=document.createElement("textarea");
+        text.placeholder="Текст варианта ответа";
+        text.value=row.text||"";
+        text.setAttribute("aria-label",`Текст варианта ${i+1}`);
+        const dest=document.createElement("input");
+        dest.type="number";
+        dest.min="1";
+        dest.step="1";
+        dest.placeholder="№ рубрики";
+        dest.value=row.destination||"";
+        dest.setAttribute("aria-label",`Номер рубрики для варианта ${i+1}`);
+        const remove=document.createElement("button");
+        remove.type="button";
+        remove.className="danger route-remove";
+        remove.textContent="×";
+        remove.title="Удалить вариант";
+        text.addEventListener("input",()=>routeRows[i].text=text.value);
+        dest.addEventListener("input",()=>routeRows[i].destination=dest.value);
+        remove.addEventListener("click",()=>{
+          if(routeRows.length<=2){notify("Нужно оставить минимум два варианта.");return}
+          const next=routeRows.filter((_,n)=>n!==i);
+          renderRouteRows(next);
+        });
+        line.append(text,dest,remove);
+        wrap.append(line);
+      });
+      const add=document.createElement("button");
+      add.type="button";
+      add.className="light route-add";
+      add.textContent="+ Добавить вариант";
+      add.addEventListener("click",()=>renderRouteRows([...routeRows,{text:"",destination:""}]));
+      wrap.append(add);
+      return wrap;
+    }
+    fields.forEach(f=>{
+      const label=document.createElement("label");
+      label.textContent=f.label;
+      if(f.help){
+        const help=document.createElement("span");
+        help.className="field-help";
+        help.textContent=f.help;
+        label.append(help);
+      }
+      if(f.type==="routeRows"){
+        label.classList.add("route-rows-field");
+        const rows=Array.isArray(initial[f.name])?initial[f.name]:[{text:"",destination:""},{text:"",destination:""}];
+        label.append(renderRouteRows(rows.map(r=>({...r}))));
+      }else{
+        let el;
+        if(f.type==="textarea"){
+          el=document.createElement("textarea");
+          el.rows=f.rows||4;
+          if(f.rows>=6)el.classList.add("compact-textarea");
+        }else{
+          el=document.createElement("input");
+          el.type=f.type||"text";
+          if(f.min!==undefined)el.min=f.min;
+        }
+        el.name=f.name;
+        el.value=initial[f.name]??f.value??"";
+        if(f.required)el.required=true;
+        label.append(el);
+      }
+      host.append(label);
+    });
+    $("editorBackdrop").classList.remove("hidden");
+    function close(value){
+      $("editorBackdrop").classList.add("hidden");
+      $("editorForm").onsubmit=null;
+      $("editorClose").onclick=null;
+      $("editorCancel").onclick=null;
+      editorOpen=false;
+      resolve(value);
+    }
+    $("editorClose").onclick=()=>close(null);
+    $("editorCancel").onclick=()=>close(null);
+    $("editorForm").onsubmit=e=>{
+      e.preventDefault();
+      const result={};
+      fields.forEach(f=>{
+        if(f.type==="routeRows")result[f.name]=routeRows.map(r=>({...r}));
+        else result[f.name]=new FormData($("editorForm")).get(f.name)||"";
+      });
+      close(result);
+    };
+  });
+}
+
+async function addProgram(){
+  if(!admin())return;
+  const v=await openEditor("Новая программа",[
+    {name:"title",label:"Название программы",required:true},
+    {name:"description",label:"Описание",type:"textarea",rows:3},
+    {name:"isFree",label:"Доступ",type:"select",value:"false"}
+  ],{isFree:"false"});
+  if(!v||!v.title.trim())return;
+  course.programs.push({id:uid("program"),title:v.title.trim(),description:v.description.trim(),isFree:v.isFree==="true",sections:[]});
+  selected=course.programs.at(-1).id;
+  activeSectionId=null;
+  await changed("Программа добавлена.");
+}
+
+async function editProgram(id){
+  if(!admin())return;
+  const p=course.programs.find(x=>x.id===id);if(!p)return;
+  const v=await openEditor("Изменить программу",[
+    {name:"title",label:"Название программы",required:true},
+    {name:"description",label:"Описание",type:"textarea",rows:3},
+    {name:"isFree",label:"Доступ",type:"select"}
+  ],{title:p.title,description:p.description||"",isFree:programIsFree(p)?"true":"false"});
+  if(!v||!v.title.trim())return;
+  p.title=v.title.trim();p.description=v.description.trim();p.isFree=v.isFree==="true";
+  await changed("Программа изменена.");
+}
+
+async function deleteProgram(id){
+  if(!admin())return;
+  const p=course.programs.find(x=>x.id===id);if(!p)return;
+  if(!confirm(`Удалить программу «${p.title}» и все её рубрики и задания?`))return;
+  course.programs=course.programs.filter(x=>x.id!==id);
+  selected=course.programs[0]?.id||null;
+  activeSectionId=course.programs[0]?.sections?.[0]?.id||null;
+  await changed("Программа удалена.");
+}
+
+async function addSection(programId){
+  if(!admin())return;
+  const p=course.programs.find(x=>x.id===programId);if(!p)return;
+  const v=await openEditor("Новая рубрика",[
+    {name:"rubricNumber",label:"Номер рубрики",type:"number",min:1,required:true},
+    {name:"title",label:"Название рубрики",required:true},
+    {name:"description",label:"Описание",type:"textarea",rows:3},
+    {name:"nextRubricNumber",label:"Номер следующей рубрики (необязательно)",type:"number",min:1}
+  ],{rubricNumber:String((p.sections||[]).length+1)});
+  if(!v||!v.title.trim()||!v.rubricNumber.trim())return;
+  if(findRubricByNumber(p,v.rubricNumber)){notify("Такая рубрика уже существует.");return}
+  const s={id:uid("section"),rubricNumber:v.rubricNumber.trim(),title:v.title.trim(),description:v.description.trim(),nextRubricNumber:v.nextRubricNumber.trim(),questions:[]};
+  p.sections||=[];p.sections.push(s);
+  selected=programId;activeSectionId=s.id;
+  await changed("Рубрика добавлена.");
+}
+
+async function editSection(id){
+  if(!admin())return;
+  const s=findSection(id);if(!s)return;
+  const p=course.programs.find(x=>(x.sections||[]).some(y=>y.id===id));
+  const v=await openEditor("Изменить рубрику",[
+    {name:"rubricNumber",label:"Номер рубрики",type:"number",min:1,required:true},
+    {name:"title",label:"Название рубрики",required:true},
+    {name:"description",label:"Описание",type:"textarea",rows:3},
+    {name:"nextRubricNumber",label:"Номер следующей рубрики (необязательно)",type:"number",min:1}
+  ],{rubricNumber:rubricNumber(s,p.sections.indexOf(s)),title:s.title,description:s.description||"",nextRubricNumber:s.nextRubricNumber||""});
+  if(!v||!v.title.trim()||!v.rubricNumber.trim())return;
+  const duplicate=findRubricByNumber(p,v.rubricNumber);
+  if(duplicate&&duplicate.id!==id){notify("Такая рубрика уже существует.");return}
+  Object.assign(s,{rubricNumber:v.rubricNumber.trim(),title:v.title.trim(),description:v.description.trim(),nextRubricNumber:v.nextRubricNumber.trim()});
+  selected=p.id;activeSectionId=id;
+  await changed("Рубрика изменена.");
+}
+
+async function deleteSection(id){
+  if(!admin())return;
+  const s=findSection(id);if(!s)return;
+  if(!confirm(`Удалить рубрику «${s.title}» и все задания в ней?`))return;
+  const p=course.programs.find(x=>(x.sections||[]).some(y=>y.id===id));
+  p.sections=p.sections.filter(x=>x.id!==id);
+  activeSectionId=p.sections[0]?.id||null;
+  await changed("Рубрика удалена.");
+}
